@@ -27,12 +27,15 @@ jobs:
         with:
           target: test
           load: true
-          context: php-7.4.33-cli
+          context: ./php-7.4.33-cli
+          file: ./php-7.4.33-cli/Dockerfile
+          platforms: linux/amd64,linux/arm64
 
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
-          context: php-7.4.33-cli
+          context: ./php-7.4.33-cli
+          file: ./php-7.4.33-cli/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
           target: final
