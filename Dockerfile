@@ -88,7 +88,7 @@ RUN docker-php-source extract
 WORKDIR /usr/src/php
 
 RUN apk add patch
-COPY common/php-7.4.26-openssl3.patch /usr/src
+COPY php-7.4.26-openssl3.patch /usr/src
 RUN patch -p1 < ../php-7.4.26-openssl3.patch
 
 #	cd /usr/src/php; \
