@@ -27,15 +27,13 @@ jobs:
         with:
           target: test
           load: true
-          context: ./
-          dockerfile: Dockerfile
+          context: php-7.4.33-cli
 
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
-          context: ./
-          dockerfile: Dockerfile
+          context: php-7.4.33-cli
           platforms: linux/amd64,linux/arm64
           push: true
           target: final
-          tags: ${{ vars.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}:latest
+          tags: ${{ vars.DOCKERHUB_USERNAME }}/base-php-7.4.33-cli:latest
