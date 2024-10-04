@@ -41,5 +41,5 @@ jobs:
           context: "{{defaultContext}}:php-7.4.33-cli"
           platforms: linux/amd64,linux/arm64
           push: true
-          target: final
+#          target: final
           tags: ${{ vars.DOCKERHUB_USERNAME }}/base-php-7.4.33-cli:latest
