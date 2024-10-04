@@ -37,10 +37,8 @@ jobs:
 
       - name: Build and push
         uses: docker/build-push-action@v6
-        run: ls -la
         with:
-          context: ./php-7.4.33-cli
-          file: ./php-7.4.33-cli/Dockerfile
+          context: "{{defaultContext}}:php-7.4.33-cli"
           platforms: linux/amd64,linux/arm64
           push: true
           target: final
