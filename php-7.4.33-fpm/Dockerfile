@@ -225,8 +225,9 @@ RUN install-php-extensions bcmath
 COPY entrypoint.sh /usr/local/bin/docker-php-entrypoint
 RUN chmod +x /usr/local/bin/docker-php-entrypoint
 
+COPY php-fpm.conf /usr/local/etc/php/php-fpm.conf
 COPY conf.d /usr/local/etc/php/conf.d
-COPY php-fpm/conf.d /usr/local/etc/php/conf.d
+COPY php-fpm.d /usr/local/etc/php-fpm.d
 
 
 FROM scratch
