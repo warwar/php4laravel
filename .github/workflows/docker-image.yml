@@ -35,11 +35,19 @@ jobs:
 #          file: ./php-7.4.33-cli/Dockerfile
 #          platforms: linux/amd64,linux/arm64
 
-      - name: Build and push
+      - name: CLI Build and push
         uses: docker/build-push-action@v6
         with:
           context: "{{defaultContext}}:php-7.4.33-cli"
           platforms: linux/amd64,linux/arm64
           push: true
-#          target: final
           tags: ${{ vars.DOCKERHUB_USERNAME }}/base-php-7.4.33-cli:latest
+
+      - name: FPM Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: "{{defaultContext}}:php-7.4.33-fpm"
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ vars.DOCKERHUB_USERNAME }}/base-php-7.4.33-fpm:latest
+
