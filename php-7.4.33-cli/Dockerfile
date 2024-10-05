@@ -2,11 +2,12 @@ FROM alpine:3.20 AS stage0
 
 # dependencies required for running "phpize"
 # these get automatically installed and removed by "docker-php-ext-*" (unless they're already installed)
-ENV PHPIZE_DEPS autoconf dpkg-dev dpkg file g++ gcc libc-dev make pkgconf re2c
+ENV PHPIZE_DEPS="autoconf dpkg-dev dpkg file g++ gcc libc-dev make pkgconf re2c"
 ENV PHP_INI_DIR /usr/local/etc/php
 
 # persistent / runtime deps
-RUN apk add --no-cache ca-certificates curl openssl tar xz
+RUN apk add --update --no-cache ca-certificates curl openssl tar xz bash unzip zip libbz2 libpng libjpeg libzip freetype icu-libs icu-data-full 7zip gettext libmemcached expat
+
 
 # ensure www-data user exists
 RUN set -eux \
@@ -69,9 +70,27 @@ RUN set -eux; \
 		openssl-dev \
 		readline-dev \
 		sqlite-dev \
+        libffi-dev \
+        freetype-dev  \
+        libjpeg-turbo-dev  \
+        libzip-dev \
+        libmcrypt-dev  \
+        libwebp-dev  \
+        libpng-dev  \
+        libxpm-dev  \
+        icu-dev \
+        gettext-dev \
+        musl-dev \
+        mariadb-dev \
+        libmemcached-dev \
+        expat-dev \
 	;
 
-#RUN rm -vf /usr/include/iconv.h
+#ENV LD_PRELOAD /usr/lib/preloadable_libiconv.so php
+RUN rm -rf /usr/include/iconv.h \
+    && rm -rf /usr/include/libcharset.h \
+    && rm -rf /usr/include/localcharset.h \
+    && ln -sv /usr/include/gnu-libiconv/*.h /usr/include/
 
 RUN export \
 		CFLAGS="$PHP_CFLAGS" \
@@ -93,49 +112,64 @@ RUN patch -p1 < ../php-7.4.26-openssl3.patch
 
 #	cd /usr/src/php; \
 #	gnuArch="$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)"; \
-RUN	gnuArch="$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)"; \
+RUN	echo 'gnuArch="$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)"; \
       ./configure \
 		--build="$gnuArch" \
+        --disable-debug \
 		--with-config-file-path="$PHP_INI_DIR" \
 		--with-config-file-scan-dir="$PHP_INI_DIR/conf.d" \
 		--enable-option-checking=fatal \
 		--with-mhash \
-		--with-pic \
 		--enable-ftp \
-#		--enable-mbstring \
+#        --enable-bcmath \
+        --enable-calendar \
+        --enable-ctype \
+		--with-curl \
+		--with-curl \
+        --enable-exif \
+        --with-ffi \
+        --enable-fileinfo \
+        --enable-filter \
+        --enable-ftp \
+        --enable-gd \
+        --with-freetype=/usr/ \
+        --with-gettext \
+        --enable-intl \
+        --enable-json \
+        --with-mhash \
+        --with-iconv=/usr \
+		--enable-mbstring \
+        --enable-pcntl \
 		--enable-mysqlnd \
+        --with-pdo-mysql=/usr \
+        --with-expat \
 		--with-password-argon2 \
 		--with-sodium=shared \
 		--with-pdo-sqlite=/usr \
 		--with-sqlite3=/usr \
-		--with-curl \
-		--without-iconv \
 		--with-openssl \
 		--with-readline \
 		--with-zlib \
-		--enable-phpdbg \
-		--enable-phpdbg-readline \
-		--with-pear \
-		$(test "$gnuArch" = 'riscv64-linux-musl' && echo '--without-pcre-jit');
+#        --with-zlib-dir=/usr \
+		--enable-cli \
+        --enable-sockets \
+        --disable-opcache ' >> ../cfg-with-param.sh ;
+RUN cd /usr/src/php; sh ../cfg-with-param.sh;
+#		--with-pic \
+#		--enable-phpdbg \
+#		--enable-phpdbg-readline \
 
-RUN make -j "$(nproc)"; \
-	find -type f -name '*.a' -delete; \
-	make install; \
-	find \
-		/usr/local \
-		-type f \
-		-perm '/0111' \
-		-exec sh -euxc ' \
-			strip --strip-all "$@" || : \
-		' -- '{}' + \
-	; \
-	make clean;
+RUN cd /usr/src/php; make -j "$(nproc)"
+RUN cd /usr/src/php; find -type f -name '*.a' -delete
+RUN cd /usr/src/php; make install
+RUN cd /usr/src/php; find /usr/local -type f -perm '/0111' -exec sh -euxc 'strip --strip-all "$@" || : ' -- '{}' +
+RUN cd /usr/src/php; make clean
 
-RUN	cp -v php.ini-* "$PHP_INI_DIR/"; \
+RUN cd /usr/src/php; cp -v php.ini-* "$PHP_INI_DIR/"; \
 	cd /; \
 	docker-php-source delete;
 
-RUN	runDeps="$( \
+RUN cd /usr/src/php; runDeps="$( \
 		scanelf --needed --nobanner --format '%n#p' --recursive /usr/local \
 			| tr ',' '\n' \
 			| sort -u \
@@ -143,19 +177,52 @@ RUN	runDeps="$( \
 	)"; \
 apk add --no-cache $runDeps;
 
-RUN	apk del --no-network .build-deps
-#	pecl update-channels; \
-#	rm -rf /tmp/pear ~/.pearrc; \
+COPY docker-php-ext-* docker-php-entrypoint install-php-extensions /usr/local/bin/
+
+#
+#RUN	apk del --no-network .build-deps;
+##	pecl update-channels; \
+##	rm -rf /tmp/pear ~/.pearrc; \
 RUN php --version
 
-COPY docker-php-ext-* docker-php-entrypoint /usr/local/bin/
 
 # sodium was built as a shared module (so that it can be replaced later if so desired), so let's enable it too (https://github.com/docker-library/php/issues/598)
-RUN docker-php-ext-enable sodium
+#RUN docker-php-ext-enable sodium
+
+#RUN pecl install --force igbinary
+RUN install-php-extensions igbinary
+RUN docker-php-ext-enable igbinary
+
+#RUN pecl install --force msgpack
+RUN install-php-extensions msgpack
+RUN docker-php-ext-enable msgpack
+
+#RUN pecl install --force --enable-redis-igbinary redis
+RUN install-php-extensions redis
+RUN docker-php-ext-enable redis
+
+RUN install-php-extensions memcached
+RUN docker-php-ext-enable memcached
+
+RUN install-php-extensions zip
+RUN install-php-extensions shmop
+RUN install-php-extensions sodium
+RUN install-php-extensions sysvmsg
+RUN install-php-extensions sysvsem
+RUN install-php-extensions sysvshm
+RUN install-php-extensions opcache
+RUN install-php-extensions bcmath
 
 
 
 FROM scratch
+ENV PHPIZE_DEPS="autoconf dpkg-dev dpkg file g++ gcc libc-dev make pkgconf re2c"
+ENV PHP_INI_DIR="/usr/local/etc/php"
+ENV PHP_CFLAGS="-fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64"
+ENV PHP_CPPFLAGS="$PHP_CFLAGS"
+ENV PHP_LDFLAGS="-Wl,-O1 -pie"
+ENV BUILD_DEPS="$PHPIZE_DEPS argon2-dev coreutils curl-dev gnu-libiconv-dev libsodium-dev libxml2-dev linux-headers oniguruma-dev openssl-dev readline-dev sqlite-dev"
+
 COPY --from=stage0 / /
 STOPSIGNAL SIGQUIT
 
